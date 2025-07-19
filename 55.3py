@@ -1,0 +1,53 @@
+import os
+import json
+from PIL import Image
+import cv2
+import matplotlib.pyplot as plt
+import tensorflow as tf
+
+DATASET_PATH = 'dataset/'
+
+with open("class_indices.json", "r") as f:
+    class_indices = json.load(f)
+
+inv_class_indices = {v: k for k, v in class_indices.items()}
+class_mode = "binary" if len(class_indices) == 2 else "categorical"
+
+def predict_image(image_path):
+    if not os.path.exists(image_path):
+        print(f"Ошибка: файл не найден по пути: {image_path}")
+        return
+    try:
+        img = Image.open(image_path)
+        img.verify()
+        img = Image.open(image_path)
+    except (OSError, IOError):
+        print(f"Ошибка: Поврежденное изображение - {image_path}")
+        return
+
+    model = tf.keras.models.load_model("image_classifier.h5")
+
+    img = cv2.imread(image_path)
+    if img is None:
+        print(f"Ошибка: Не удалось прочитать изображение - {image_path}")
+        return
+
+    img = cv2.resize(img, (128, 128))
+    img = img / 255.0
+    img = tf.expand_dims(img, axis=0)
+
+    prediction = model.predict(img)
+
+    if class_mode == "binary":
+        predicted_index = int(prediction[0] > 0.5)
+    else:
+        predicted_index = tf.argmax(prediction, axis=-1).numpy()[0]
+
+    predicted_class = inv_class_indices[predicted_index]
+
+    img = Image.open(image_path)
+    plt.imshow(img)
+    plt.title(f"Модель определила: {predicted_class}")
+    plt.axis('off')
+    plt.show()
+predict_image("dataset/cats/Снимок экрана 2025-07-05 142419.png")
